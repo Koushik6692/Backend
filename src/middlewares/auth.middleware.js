@@ -6,23 +6,25 @@ import jwt from "jsonwebtoken";
 const verifyJWT = asyncHandler(async (req, res, next) => {
   try {
     const token =
-      req.cookie?.accessToken ||
-      req.header("x-auth-token") ||
+      req.cookies?.accessToken ||
       req.header("Authorization")?.replace("Bearer ", "");
     if (!token) {
-      throw ApiError(401, "Unauthorized request");
+      throw new ApiError(401, "Unauthorized request");
     }
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
     const user = await User.findById(decodedToken?._id).select(
       "-password -refreshToken"
     );
     if (!user) {
-      throw ApiError(401, "Invalid token");
+      throw new ApiError(401, "Invalid token");
     }
     req.user = user;
     next();
   } catch (error) {
-    throw ApiError(401, error?.message || "Something went wrong while auth");
+    throw new ApiError(
+      401,
+      error?.message || "Something went wrong while auth"
+    );
   }
 });
 
