@@ -14,6 +14,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // remove password and refresh token field from response
   // check for user creation
   // return res
+
   const { username, fullName, password, email } = req.body;
   if (
     [username, fullName, password, email].some((field) => field.trim() == "")
@@ -63,5 +64,88 @@ const registerUser = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(200, createdUser, "User created successfully"));
 });
+try {
+  const genrateAcsessAndRefreshToken = async (user_id) => {
+    const user = await User.findById(user_id);
 
-export { registerUser };
+    const accessToken = user.genrateAccessToken();
+    const refreshToken = user.genrateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  };
+} catch (error) {
+  throw ApiError(
+    500,
+    "Something went wrong while genrating access and refresh Token"
+  );
+}
+
+const loginUser = asyncHandler(async (req, res) => {
+  //get data from frontend
+  //verify username,email exists in db
+  //get user
+  //verify password
+  //set cookies
+  //update cookies in db
+  const { username, email, password } = req.body;
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+  if (!user) {
+    throw ApiError(401, "User not found");
+  }
+  const verifyPassword = user.isPasswordCorrect(password);
+  if (!verifyPassword) {
+    throw ApiError(401, "Invalid user credintials");
+  }
+  const { accessToken, refreshToken } = genrateAcsessAndRefreshToken(user._id);
+
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        201,
+        { user: loggedInUser, accessToken, refreshToken },
+        "User loggeIn Successfully!"
+      )
+    );
+});
+
+const logoutUser = asyncHandler(async (req, res) => {
+  // using auth middleware user is added to req in user.route.js
+  //find the user in db and delete the refreshtoken in db
+  //delete cookies
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: undefined,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  res
+    .status(200)
+    .clearCookie("accessToken")
+    .clearCookie("refreshToken")
+    .json(new ApiResponse(200, "User loggedOut Successfully"));
+});
+
+export { registerUser, loginUser, logoutUser };
