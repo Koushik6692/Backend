@@ -65,7 +65,7 @@ const registerUser = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(200, createdUser, "User created successfully"));
 });
-const genrateAcsessAndRefreshToken = async (user_id) => {
+const genrateAcsessAndRefreshToken = asyncHandler(async (user_id) => {
   try {
     const user = await User.findById(user_id);
     const accessToken = await user.genrateAccessToken();
@@ -86,7 +86,7 @@ const genrateAcsessAndRefreshToken = async (user_id) => {
       "Something went wrong while genrating access and refresh Token"
     );
   }
-};
+});
 
 const loginUser = asyncHandler(async (req, res) => {
   //get data from frontend
